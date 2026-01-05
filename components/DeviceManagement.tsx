@@ -51,13 +51,6 @@ const DeviceManagement: React.FC = () => {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [testLog, setTestLog] = useState<string[]>([]);
-  const analysisEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (analysisEndRef.current) {
-      analysisEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [aiAnalysis, testLog]);
 
   const ponds = useMemo(() => Array.from(new Set(devices.map(d => d.pond))), [devices]);
 
@@ -100,57 +93,6 @@ const DeviceManagement: React.FC = () => {
     }
   };
 
-  // Actions
-  const openAddModal = () => {
-    setActiveDevice(null);
-    setFormData({
-      name: '',
-      type: 'feeder',
-      pond: '',
-      executionPermission: 'manual_ai',
-      location: '',
-      description: ''
-    });
-    setAiAnalysis('');
-    setTestStatus('idle');
-    setTestLog([]);
-    setIsModalOpen(true);
-  };
-
-  const openEditModal = (device: Device) => {
-    setActiveDevice(device);
-    setFormData({
-      name: device.name,
-      type: device.type,
-      pond: device.pond,
-      executionPermission: device.executionPermission,
-      location: '安装于池位核心区', 
-      description: '常规养殖作业设备，性能稳定。'
-    });
-    setAiAnalysis('');
-    setTestStatus('idle');
-    setTestLog([]);
-    setIsModalOpen(true);
-  };
-
-  const openDetailView = (device: Device) => {
-    setActiveDevice(device);
-    setIsDetailOpen(true);
-  };
-
-  const openDeleteConfirmation = (device: Device) => {
-    setDeviceToDelete(device);
-    setIsDeleteModalOpen(true);
-  };
-
-  const confirmDelete = () => {
-    if (deviceToDelete) {
-      setDevices(prev => prev.filter(d => d.id !== deviceToDelete.id));
-      setIsDeleteModalOpen(false);
-      setDeviceToDelete(null);
-    }
-  };
-
   const handleAiLearn = async () => {
     if (!formData.description.trim()) {
       alert('请先输入设备描述以供 AI 学习');
@@ -158,14 +100,21 @@ const DeviceManagement: React.FC = () => {
     }
     setIsAiLoading(true);
     setAiAnalysis('');
-    const prompt = `分析养殖设备: 名称:${formData.name}, 描述:${formData.description}. 请推理设备用途、控制方式及AI介入逻辑。`;
+    const prompt = `作为一个智能养殖专家，请分析以下设备：
+设备名称：${formData.name}
+类型：${formData.type}
+位置：${formData.pond}
+描述：${formData.description}
+
+请提供该设备的AI介入逻辑建议、运行策略优化方案以及可能的维护预警指标。`;
+
     try {
       const stream = getGeminiStreamingResponse(prompt);
       for await (const chunk of stream) {
         setAiAnalysis(prev => prev + chunk);
       }
     } catch (error) {
-      setAiAnalysis('AI 学习过程中发生错误。');
+      setAiAnalysis('AI 学习失败。');
     } finally {
       setIsAiLoading(false);
     }
@@ -179,16 +128,28 @@ const DeviceManagement: React.FC = () => {
     setTestLog(prev => [...prev, '连接握手成功', '反馈延迟: 24ms', '状态: READY']);
   };
 
+  const openAddModal = () => {
+    setActiveDevice(null);
+    setFormData({ name: '', type: 'feeder', pond: '', executionPermission: 'manual_ai', location: '', description: '' });
+    setAiAnalysis('');
+    setTestStatus('idle');
+    setTestLog([]);
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (device: Device) => {
+    setActiveDevice(device);
+    setFormData({ name: device.name, type: device.type, pond: device.pond, executionPermission: device.executionPermission, location: '', description: '常规养殖作业设备，性能稳定。' });
+    setAiAnalysis('');
+    setTestStatus('idle');
+    setTestLog([]);
+    setIsModalOpen(true);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (activeDevice) {
-      setDevices(prev => prev.map(d => d.id === activeDevice.id ? {
-        ...d,
-        name: formData.name,
-        type: formData.type,
-        pond: formData.pond,
-        executionPermission: formData.executionPermission
-      } : d));
+      setDevices(prev => prev.map(d => d.id === activeDevice.id ? { ...d, ...formData } : d));
     } else {
       const idPrefix = formData.type === 'camera' ? 'C' : 'D';
       const newDev: Device = {
@@ -206,8 +167,17 @@ const DeviceManagement: React.FC = () => {
     setIsModalOpen(false);
   };
 
+  // Fix: Added missing confirmDelete function to resolve the error on line 374
+  const confirmDelete = () => {
+    if (deviceToDelete) {
+      setDevices(prev => prev.filter(d => d.id !== deviceToDelete.id));
+      setIsDeleteModalOpen(false);
+      setDeviceToDelete(null);
+    }
+  };
+
   return (
-    <div className="flex-1 p-8 overflow-y-auto custom-scrollbar bg-[#f9fafb] relative">
+    <div className="flex-1 p-8 overflow-y-auto custom-scrollbar bg-[#f9fafb]">
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -219,7 +189,7 @@ const DeviceManagement: React.FC = () => {
             className="flex items-center gap-2 bg-teal-500 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-teal-600 shadow-lg shadow-teal-500/20 transition-all active:scale-95"
           >
             <Plus size={20} />
-            <span>添加新设备</span>
+            <span>登记新设备</span>
           </button>
         </div>
 
@@ -240,6 +210,15 @@ const DeviceManagement: React.FC = () => {
                 {ponds.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
             </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1"><ShieldCheck size={12}/> 权限分配</span>
+              <select value={filterPermission} onChange={(e) => setFilterPermission(e.target.value)} className="bg-gray-50 border border-gray-100 rounded-lg px-3 py-1.5 text-sm text-gray-900 outline-none">
+                <option value="all">全部类型</option>
+                <option value="manual_only">仅人工</option>
+                <option value="manual_ai">人工/AI</option>
+                <option value="ai_only">仅AI</option>
+              </select>
+            </div>
           </div>
 
           <div className="flex flex-col sm:flex-row items-center gap-4 pt-4 border-t border-gray-50">
@@ -248,7 +227,7 @@ const DeviceManagement: React.FC = () => {
               <input type="text" placeholder="搜索设备名称或ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-gray-50 border border-gray-100 rounded-xl pl-11 pr-4 py-3 text-sm text-gray-900 outline-none font-medium" />
             </div>
             <button className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-white text-gray-600 rounded-xl text-sm font-bold border border-gray-100 shadow-sm">
-              <RefreshCw size={16} /> 刷新列表
+              <RefreshCw size={16} /> 刷新
             </button>
           </div>
         </div>
@@ -259,6 +238,7 @@ const DeviceManagement: React.FC = () => {
               <tr>
                 <th className="px-6 py-5 text-xs font-bold text-gray-400 uppercase tracking-wider">设备信息</th>
                 <th className="px-6 py-5 text-xs font-bold text-gray-400 uppercase tracking-wider">状态</th>
+                <th className="px-6 py-5 text-xs font-bold text-gray-400 uppercase tracking-wider">权限分配</th>
                 <th className="px-6 py-5 text-xs font-bold text-gray-400 uppercase tracking-wider">养殖池</th>
                 <th className="px-6 py-5 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">操作</th>
               </tr>
@@ -278,16 +258,17 @@ const DeviceManagement: React.FC = () => {
                     </div>
                   </td>
                   <td className="px-6 py-6">{getStatusBadge(device.status)}</td>
+                  <td className="px-6 py-6">{getPermissionBadge(device.executionPermission)}</td>
                   <td className="px-6 py-6 font-medium text-sm text-gray-600">{device.pond}</td>
                   <td className="px-6 py-6 text-right">
                     <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                      <button onClick={() => openDetailView(device)} className="p-2.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl" title="查看详情">
+                      <button onClick={() => setIsDetailOpen(true)} className="p-2.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl">
                         <Eye size={18} />
                       </button>
-                      <button onClick={() => openEditModal(device)} className="p-2.5 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-xl" title="编辑信息">
+                      <button onClick={() => openEditModal(device)} className="p-2.5 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-xl">
                         <Edit2 size={18} />
                       </button>
-                      <button onClick={() => openDeleteConfirmation(device)} className="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl" title="删除设备">
+                      <button onClick={() => {setDeviceToDelete(device); setIsDeleteModalOpen(true);}} className="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl">
                         <Trash2 size={18} />
                       </button>
                     </div>
@@ -299,7 +280,7 @@ const DeviceManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* Add / Edit Modal */}
+      {/* Modal - Add / Edit */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
@@ -307,9 +288,9 @@ const DeviceManagement: React.FC = () => {
             <div className="px-8 py-6 border-b flex items-center justify-between bg-teal-50/30">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-teal-500 rounded-xl text-white">
-                  {activeDevice ? <Edit2 size={24} /> : <Plus size={24} />}
+                  <Plus size={24} />
                 </div>
-                <h2 className="text-xl font-bold text-gray-800">{activeDevice ? '编辑设备' : '登记设备'}</h2>
+                <h2 className="text-xl font-bold text-gray-800">{activeDevice ? '编辑设备' : '登记新设备'}</h2>
               </div>
               <button onClick={() => setIsModalOpen(false)} className="p-2 text-gray-400 hover:text-gray-600"><X size={20} /></button>
             </div>
@@ -321,7 +302,7 @@ const DeviceManagement: React.FC = () => {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">设备类型</label>
-                  <select value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as DeviceType})} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm text-gray-900 outline-none cursor-pointer appearance-none">
+                  <select value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as DeviceType})} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm text-gray-900 outline-none">
                     <option value="feeder">投喂机</option>
                     <option value="aerator">增氧泵</option>
                     <option value="camera">摄像头</option>
@@ -330,7 +311,7 @@ const DeviceManagement: React.FC = () => {
               </div>
               <div className="grid grid-cols-2 gap-5">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">养殖池</label>
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">养殖池位</label>
                   <input required value={formData.pond} onChange={e => setFormData({...formData, pond: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm text-gray-900 outline-none" />
                 </div>
                 <div className="space-y-1.5">
@@ -345,40 +326,47 @@ const DeviceManagement: React.FC = () => {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">设备描述</label>
-                  <button type="button" onClick={handleAiLearn} disabled={isAiLoading} className="text-xs font-bold text-teal-600 bg-teal-50 px-2 py-1 rounded-lg hover:bg-teal-100 flex items-center gap-1">
-                    <Sparkles size={12} /> AI 学习
+                  <button type="button" onClick={handleAiLearn} disabled={isAiLoading} className="text-xs font-bold text-teal-600 bg-teal-50 px-2 py-1 rounded-lg hover:bg-teal-100 flex items-center gap-1 transition-colors">
+                    {isAiLoading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />} 
+                    AI 学习
                   </button>
                 </div>
-                <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={3} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm text-gray-900 outline-none resize-none" />
+                <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={3} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm text-gray-900 outline-none resize-none" placeholder="请输入设备作业详细描述..." />
               </div>
 
-              {/* Console for AI and Testing */}
+              {/* Console area for testing and AI feedback */}
               {(aiAnalysis || isAiLoading || testLog.length > 0) && (
-                <div className="p-4 bg-slate-900 rounded-2xl border border-slate-800 space-y-2">
-                  <div className="text-[10px] font-bold text-teal-400 uppercase">AI 控制中枢反馈</div>
-                  <div className="text-[12px] text-teal-50 font-medium whitespace-pre-wrap max-h-32 overflow-y-auto">{aiAnalysis}</div>
+                <div className="p-4 bg-slate-900 rounded-2xl border border-slate-800 space-y-2 animate-in fade-in duration-300">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-2">
+                    <div className="text-[10px] font-bold text-teal-400 uppercase flex items-center gap-2">
+                      <Bot size={12} /> AI 调试中枢
+                    </div>
+                  </div>
+                  <div className="text-[12px] text-teal-50/90 font-medium whitespace-pre-wrap max-h-32 overflow-y-auto custom-scrollbar leading-relaxed">
+                    {aiAnalysis || (isAiLoading && "正在推理设备作业逻辑...")}
+                  </div>
                   {testLog.length > 0 && (
-                    <div className="font-mono text-[11px] text-slate-400 border-t border-slate-800 pt-2 space-y-1">
-                      {testLog.map((l, i) => <div key={i}>> {l}</div>)}
-                      {testStatus === 'success' && <div className="text-emerald-400 font-bold">连接就绪</div>}
+                    <div className="font-mono text-[10px] text-slate-400 pt-2 space-y-1">
+                      {testLog.map((l, i) => <div key={i} className="flex gap-2"><span>></span> {l}</div>)}
+                      {testStatus === 'success' && <div className="text-emerald-400 font-bold mt-1">IoT 隧道连接成功</div>}
                     </div>
                   )}
                 </div>
               )}
 
               <div className="pt-4 flex gap-4">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 font-bold text-gray-400">取消</button>
-                <button type="button" onClick={handleConnectTest} disabled={testStatus === 'testing'} className="flex-1 py-3 font-bold text-teal-600 border border-teal-100 rounded-xl">
-                  {testStatus === 'testing' ? '测试中...' : '连接测试'}
+                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 font-bold text-gray-400 hover:bg-gray-50 rounded-xl transition-all">取消</button>
+                <button type="button" onClick={handleConnectTest} disabled={testStatus === 'testing'} className="flex-1 py-3 font-bold text-teal-600 border border-teal-100 rounded-xl hover:bg-teal-50 transition-all">
+                  {testStatus === 'testing' ? '链路检测中' : '连接测试'}
                 </button>
-                <button type="submit" className="flex-[1.5] py-3 font-bold text-white bg-teal-500 rounded-xl shadow-lg shadow-teal-500/20">保存信息</button>
+                <button type="submit" className="flex-[1.5] py-3 font-bold text-white bg-teal-500 rounded-xl shadow-lg shadow-teal-500/20 hover:bg-teal-600 transition-all active:scale-[0.98]">确认提交</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Confirmation */}
       {isDeleteModalOpen && deviceToDelete && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsDeleteModalOpen(false)} />
@@ -388,54 +376,12 @@ const DeviceManagement: React.FC = () => {
             </div>
             <div>
               <h3 className="text-xl font-bold text-gray-800">确认删除设备？</h3>
-              <p className="text-sm text-gray-400 mt-2">此操作将永久移除 <span className="text-gray-900 font-bold">{deviceToDelete.name}</span>，且无法撤销。</p>
+              <p className="text-sm text-gray-400 mt-2">此操作将移除设备 <span className="text-gray-900 font-bold">{deviceToDelete.name}</span>。</p>
             </div>
             <div className="flex gap-4">
-              <button onClick={() => setIsDeleteModalOpen(false)} className="flex-1 py-3.5 rounded-2xl text-sm font-bold text-gray-400 hover:bg-gray-50 transition-all">取消</button>
-              <button onClick={confirmDelete} className="flex-1 py-3.5 rounded-2xl text-sm font-bold text-white bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/20 transition-all">确认删除</button>
+              <button onClick={() => setIsDeleteModalOpen(false)} className="flex-1 py-3.5 rounded-2xl text-sm font-bold text-gray-400">取消</button>
+              <button onClick={confirmDelete} className="flex-1 py-3.5 rounded-2xl text-sm font-bold text-white bg-red-500 shadow-lg shadow-red-500/20">确认删除</button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Detail Modal */}
-      {isDetailOpen && activeDevice && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsDetailOpen(false)} />
-          <div className="bg-white w-full max-w-xl rounded-[2.5rem] shadow-2xl relative p-10 space-y-8 animate-in fade-in duration-300">
-            <button onClick={() => setIsDetailOpen(false)} className="absolute top-8 right-8 text-gray-400 hover:text-gray-900"><X size={24} /></button>
-            <div className="flex items-center gap-6">
-              <div className="w-20 h-20 rounded-3xl bg-gray-50 flex items-center justify-center text-3xl">{getIcon(activeDevice.type)}</div>
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">{activeDevice.name}</h2>
-                <div className="flex gap-2 mt-1">{getStatusBadge(activeDevice.status)} {getPermissionBadge(activeDevice.executionPermission)}</div>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-6 pt-4 border-t border-gray-100">
-              <div className="space-y-1">
-                <span className="text-[10px] font-bold text-gray-400 uppercase">资产 ID</span>
-                <div className="text-sm font-mono font-bold text-gray-700">{activeDevice.id}</div>
-              </div>
-              <div className="space-y-1">
-                <span className="text-[10px] font-bold text-gray-400 uppercase">最后活跃</span>
-                <div className="text-sm font-bold text-gray-700">{activeDevice.lastActive}</div>
-              </div>
-              <div className="space-y-1">
-                <span className="text-[10px] font-bold text-gray-400 uppercase">养殖池位</span>
-                <div className="text-sm font-bold text-gray-700">{activeDevice.pond}</div>
-              </div>
-              <div className="space-y-1">
-                <span className="text-[10px] font-bold text-gray-400 uppercase">固件版本</span>
-                <div className="text-sm font-bold text-gray-700">{activeDevice.metadata.firmware}</div>
-              </div>
-            </div>
-            <div className="space-y-3">
-              <span className="text-[10px] font-bold text-gray-400 uppercase">设备详情摘要</span>
-              <div className="p-5 bg-teal-50/50 rounded-2xl border border-teal-100/50 text-sm text-gray-700 leading-relaxed">
-                当前设备运行稳定，已接入 AI 智能决策网络。系统将根据水质动态自动调节运行频率，确保养殖环境处于最优状态。
-              </div>
-            </div>
-            <button onClick={() => setIsDetailOpen(false)} className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold shadow-xl">关闭窗口</button>
           </div>
         </div>
       )}
