@@ -1,6 +1,5 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Plus, Search, MoreHorizontal, Edit2, Trash2, RefreshCw, Camera, Wind, Zap, Filter, ChevronDown, ShieldCheck, User, Bot, Layers, X, Info, MapPin, Sparkles, Activity, CheckCircle2, AlertCircle, Loader2, Eye, History, Cpu, AlertTriangle } from 'lucide-react';
+import { Plus, Search, MoreHorizontal, Edit2, Trash2, RefreshCw, Camera, Wind, Zap, Filter, ChevronDown, ShieldCheck, User, Bot, Layers, X, Info, MapPin, Sparkles, Activity, CheckCircle2, AlertCircle, Loader2, Eye, History, Cpu, AlertTriangle, SignalHigh, Battery, Database } from 'lucide-react';
 import { Device, DeviceType, DeviceStatus, ExecutionPermission } from '../types';
 import { getGeminiStreamingResponse } from '../services/geminiService';
 
@@ -139,11 +138,24 @@ const DeviceManagement: React.FC = () => {
 
   const openEditModal = (device: Device) => {
     setActiveDevice(device);
-    setFormData({ name: device.name, type: device.type, pond: device.pond, executionPermission: device.executionPermission, location: '', description: '常规养殖作业设备，性能稳定。' });
+    setFormData({ 
+      name: device.name, 
+      type: device.type, 
+      pond: device.pond, 
+      executionPermission: device.executionPermission, 
+      location: '', 
+      description: '常规养殖作业设备，性能稳定。' 
+    });
     setAiAnalysis('');
     setTestStatus('idle');
     setTestLog([]);
     setIsModalOpen(true);
+    setIsDetailOpen(false); // Close detail if open
+  };
+
+  const openDetailModal = (device: Device) => {
+    setActiveDevice(device);
+    setIsDetailOpen(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -167,7 +179,6 @@ const DeviceManagement: React.FC = () => {
     setIsModalOpen(false);
   };
 
-  // Fix: Added missing confirmDelete function to resolve the error on line 374
   const confirmDelete = () => {
     if (deviceToDelete) {
       setDevices(prev => prev.filter(d => d.id !== deviceToDelete.id));
@@ -262,7 +273,7 @@ const DeviceManagement: React.FC = () => {
                   <td className="px-6 py-6 font-medium text-sm text-gray-600">{device.pond}</td>
                   <td className="px-6 py-6 text-right">
                     <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                      <button onClick={() => setIsDetailOpen(true)} className="p-2.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl">
+                      <button onClick={() => openDetailModal(device)} className="p-2.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl">
                         <Eye size={18} />
                       </button>
                       <button onClick={() => openEditModal(device)} className="p-2.5 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-xl">
@@ -280,9 +291,101 @@ const DeviceManagement: React.FC = () => {
         </div>
       </div>
 
+      {/* Detail Modal */}
+      {isDetailOpen && activeDevice && (
+        <div className="fixed inset-0 z-[140] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={() => setIsDetailOpen(false)} />
+          <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl relative overflow-hidden animate-in slide-in-from-right-10 duration-300">
+            <div className="p-8 space-y-8">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-teal-50 flex items-center justify-center text-teal-600">
+                    {getIcon(activeDevice.type)}
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-800">{activeDevice.name}</h2>
+                    <p className="text-sm font-mono text-gray-400">{activeDevice.id}</p>
+                  </div>
+                </div>
+                <button onClick={() => setIsDetailOpen(false)} className="p-2 text-gray-300 hover:text-gray-500"><X size={24} /></button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">当前状态</p>
+                  {getStatusBadge(activeDevice.status)}
+                </div>
+                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">所属池位</p>
+                  <div className="flex items-center gap-2 text-gray-700 font-bold">
+                    <MapPin size={14} className="text-teal-500" />
+                    {activeDevice.pond}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">实时运行指标</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl">
+                    <SignalHigh size={18} className="text-blue-500" />
+                    <div>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">信号强度</p>
+                      <p className="text-sm font-bold text-gray-700">{activeDevice.metadata.signal === 'strong' ? '极佳' : activeDevice.metadata.signal === 'medium' ? '一般' : '较弱'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl">
+                    <Battery size={18} className="text-emerald-500" />
+                    <div>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">剩余电量</p>
+                      <p className="text-sm font-bold text-gray-700">{activeDevice.metadata.battery || 100}%</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl">
+                    <Database size={18} className="text-purple-500" />
+                    <div>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">固件版本</p>
+                      <p className="text-sm font-bold text-gray-700">{activeDevice.metadata.firmware}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl">
+                    <History size={18} className="text-orange-500" />
+                    <div>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">最近上线</p>
+                      <p className="text-[11px] font-bold text-gray-700">{activeDevice.lastActive}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">权限配置说明</h3>
+                <div className="p-4 bg-teal-50/50 rounded-2xl border border-teal-100/50">
+                   {getPermissionBadge(activeDevice.executionPermission)}
+                   <p className="text-xs text-teal-700 mt-2 leading-relaxed">
+                     {activeDevice.executionPermission === 'ai_only' ? '该设备完全由 AI 托管，系统将根据水质监测数据自动触发作业指令。' : 
+                      activeDevice.executionPermission === 'manual_ai' ? '支持人工干预与 AI 协同模式，AI 建议经确认后执行。' : 
+                      '仅限具备权限的操作员手动执行，AI 不参与指令决策。'}
+                   </p>
+                </div>
+              </div>
+
+              <div className="pt-6 flex gap-3">
+                <button onClick={() => openEditModal(activeDevice)} className="flex-1 py-4 bg-teal-500 text-white rounded-2xl font-bold shadow-lg shadow-teal-500/20 hover:bg-teal-600 transition-all flex items-center justify-center gap-2">
+                  <Edit2 size={18} /> 编辑配置
+                </button>
+                <button onClick={() => setIsDetailOpen(false)} className="px-8 py-4 bg-gray-50 text-gray-400 rounded-2xl font-bold hover:bg-gray-100 transition-all">
+                  关闭
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal - Add / Edit */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
           <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl relative overflow-hidden animate-in zoom-in duration-200">
             <div className="px-8 py-6 border-b flex items-center justify-between bg-teal-50/30">

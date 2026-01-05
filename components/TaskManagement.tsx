@@ -1,6 +1,5 @@
-
 import React, { useState, useMemo } from 'react';
-import { Plus, Search, MoreHorizontal, Edit2, Trash2, RefreshCw, Filter, Layers, X, Info, Sparkles, Activity, CheckCircle2, AlertCircle, Eye, Clock, User, ClipboardList, AlertTriangle, Loader2, Bot, PlayCircle, CheckCircle } from 'lucide-react';
+import { Plus, Search, MoreHorizontal, Edit2, Trash2, RefreshCw, Filter, Layers, X, Info, Sparkles, Activity, CheckCircle2, AlertCircle, Eye, Clock, User, ClipboardList, AlertTriangle, Loader2, Bot, PlayCircle, CheckCircle, CalendarDays } from 'lucide-react';
 import { Task, TaskStatus, TaskPriority } from '../types';
 import { getGeminiStreamingResponse } from '../services/geminiService';
 
@@ -89,6 +88,12 @@ const TaskManagement: React.FC = () => {
     setAiAnalysis('');
     setExecutionStatus('idle');
     setIsModalOpen(true);
+    setIsDetailOpen(false);
+  };
+
+  const openDetailModal = (task: Task) => {
+    setActiveTask(task);
+    setIsDetailOpen(true);
   };
 
   const saveTask = () => {
@@ -129,6 +134,7 @@ const TaskManagement: React.FC = () => {
     // 4. Close modal after success feedback
     setTimeout(() => {
       setIsModalOpen(false);
+      setIsDetailOpen(false);
       setExecutionStatus('idle');
     }, 1500);
   };
@@ -266,7 +272,7 @@ const TaskManagement: React.FC = () => {
                   </td>
                   <td className="px-6 py-6 text-right">
                     <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                      <button onClick={() => setIsDetailOpen(true)} className="p-2.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl">
+                      <button onClick={() => openDetailModal(task)} className="p-2.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl">
                         <Eye size={18} />
                       </button>
                       <button onClick={() => openEditModal(task)} className="p-2.5 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-xl">
@@ -284,9 +290,80 @@ const TaskManagement: React.FC = () => {
         </div>
       </div>
 
+      {/* Task Detail Modal */}
+      {isDetailOpen && activeTask && (
+        <div className="fixed inset-0 z-[140] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={() => setIsDetailOpen(false)} />
+          <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl relative overflow-hidden animate-in slide-in-from-right-10 duration-300">
+            <div className="p-8 space-y-8">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-teal-50 flex items-center justify-center text-teal-600 shadow-sm border border-teal-100">
+                    <ClipboardList size={28} />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-800">{activeTask.name}</h2>
+                    <p className="text-sm font-mono text-gray-400">{activeTask.id} • {activeTask.pond}</p>
+                  </div>
+                </div>
+                <button onClick={() => setIsDetailOpen(false)} className="p-2 text-gray-300 hover:text-gray-500 transition-colors"><X size={24} /></button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-5 bg-gray-50 rounded-2xl border border-gray-100">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">执行进度</p>
+                  {getStatusBadge(activeTask.status)}
+                </div>
+                <div className="p-5 bg-gray-50 rounded-2xl border border-gray-100">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">紧急程度</p>
+                  <div className="flex items-center gap-2">
+                    {getPriorityBadge(activeTask.priority)}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">任务详情</h3>
+                  <div className="flex items-center gap-2 text-[11px] font-bold text-teal-600">
+                    <CalendarDays size={12} />
+                    截止: {activeTask.dueDate}
+                  </div>
+                </div>
+                <div className="p-5 bg-white border border-gray-100 rounded-2xl text-gray-600 text-[15px] leading-relaxed">
+                  {activeTask.description}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">执行责任人</h3>
+                <div className="flex items-center gap-4 p-4 bg-gray-50 border border-gray-100 rounded-2xl">
+                  <div className="w-12 h-12 rounded-full bg-teal-500 text-white flex items-center justify-center font-bold text-lg shadow-md shadow-teal-500/20">
+                    {activeTask.assignee.charAt(0)}
+                  </div>
+                  <div>
+                    <p className="font-bold text-gray-800">{activeTask.assignee}</p>
+                    <p className="text-xs text-gray-400">场区作业负责人</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-6 flex gap-3">
+                <button onClick={() => openEditModal(activeTask)} className="flex-1 py-4 bg-teal-500 text-white rounded-2xl font-bold shadow-lg shadow-teal-500/20 hover:bg-teal-600 transition-all flex items-center justify-center gap-2 active:scale-95">
+                  <Edit2 size={18} /> 编辑任务
+                </button>
+                <button onClick={() => setIsDetailOpen(false)} className="px-8 py-4 bg-gray-50 text-gray-400 rounded-2xl font-bold hover:bg-gray-100 transition-all">
+                  关闭
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal - Add / Edit */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => executionStatus === 'idle' && setIsModalOpen(false)} />
           <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl relative overflow-hidden animate-in zoom-in duration-200">
             {/* Overlay for Execution Status */}
@@ -396,7 +473,7 @@ const TaskManagement: React.FC = () => {
                 <button 
                   type="button" 
                   onClick={handleManualExecute} 
-                  className="flex-1 py-3 font-bold text-teal-600 border border-teal-100 rounded-xl hover:bg-teal-50 transition-all flex items-center justify-center gap-2"
+                  className="flex-1 py-3 font-bold text-teal-600 border border-teal-100 rounded-xl hover:bg-teal-50 transition-all flex items-center justify-center gap-2 active:scale-95"
                 >
                   <PlayCircle size={18} /> 立刻手动执行
                 </button>
