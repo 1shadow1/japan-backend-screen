@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { TrendingUp, Cpu, History, Mic, GraduationCap, Send, Loader2 } from 'lucide-react';
+import { TrendingUp, Cpu, History, Mic, GraduationCap, Send, Loader2, Paperclip, Globe, Clock } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Message } from '../types';
@@ -65,7 +65,7 @@ const ChatArea: React.FC = () => {
   return (
     <div className="flex-1 flex flex-col bg-white rounded-2xl shadow-sm border border-gray-100 my-4 mx-2 overflow-hidden relative">
       {/* Chat Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b">
+      <div className="flex items-center justify-between px-6 py-4 border-b bg-white">
         <h2 className="text-gray-600 font-medium text-lg">new chat</h2>
         <div className="flex items-center gap-5 text-teal-200">
           <TrendingUp size={22} className="text-teal-400 hover:text-teal-600 cursor-pointer transition-colors" />
@@ -79,9 +79,9 @@ const ChatArea: React.FC = () => {
       {/* Messages Area */}
       <div 
         ref={scrollRef}
-        className="flex-1 overflow-y-auto p-6 space-y-4 bg-transparent custom-scrollbar"
+        className="flex-1 overflow-y-auto p-6 space-y-6 bg-transparent custom-scrollbar"
       >
-        <div className="flex flex-col items-center space-y-4 max-w-3xl mx-auto w-full">
+        <div className="flex flex-col space-y-6 w-full">
           {messages.length === 0 && !isLoading && (
             <div className="flex flex-col items-center justify-center h-64 text-gray-300">
               <p className="text-lg">开始您的对话吧</p>
@@ -90,12 +90,18 @@ const ChatArea: React.FC = () => {
           {messages.map((msg, idx) => (
             <div 
               key={idx} 
-              className={`w-full flex ${msg.role === 'user' ? 'justify-center' : 'justify-start'}`}
+              className={`w-full flex items-end gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
-              <div className={`max-w-[85%] rounded-2xl px-6 py-3.5 text-[15.5px] leading-relaxed transition-all duration-300 ${
+              {msg.role === 'user' && (
+                <span className="text-[10px] text-gray-400 font-mono pb-1 select-none">
+                  {msg.timestamp}
+                </span>
+              )}
+              
+              <div className={`max-w-[80%] rounded-2xl px-6 py-3.5 text-[15px] leading-relaxed transition-all duration-300 ${
                 msg.role === 'user' 
-                  ? 'bg-[#EBFDF5] text-[#065F46] border border-[#CDF9E5] shadow-sm' 
-                  : 'bg-white text-gray-700 border border-gray-100 shadow-sm prose prose-slate'
+                  ? 'bg-[#EBFDF5] text-[#065F46] border border-[#CDF9E5] shadow-sm rounded-br-none' 
+                  : 'bg-white text-gray-700 border border-gray-100 shadow-sm prose prose-slate rounded-bl-none'
               }`}>
                 {msg.role === 'model' ? (
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -105,11 +111,17 @@ const ChatArea: React.FC = () => {
                   msg.content
                 )}
               </div>
+
+              {msg.role === 'model' && (
+                <span className="text-[10px] text-gray-400 font-mono pb-1 select-none">
+                  {msg.timestamp}
+                </span>
+              )}
             </div>
           ))}
           {isLoading && messages.length > 0 && messages[messages.length - 1].content === '' && (
             <div className="flex justify-start w-full">
-              <div className="bg-white rounded-2xl px-6 py-3.5 border border-gray-100 shadow-sm">
+              <div className="bg-white rounded-2xl px-6 py-3.5 border border-gray-100 shadow-sm rounded-bl-none">
                 <Loader2 className="animate-spin text-teal-500" size={20} />
               </div>
             </div>
@@ -118,25 +130,41 @@ const ChatArea: React.FC = () => {
       </div>
 
       {/* Input Area */}
-      <div className="p-6 bg-white border-t border-gray-50">
-        <div className="max-w-2xl mx-auto relative flex items-center bg-white rounded-2xl border border-gray-200 focus-within:border-teal-400 focus-within:ring-4 focus-within:ring-teal-50/50 transition-all shadow-sm">
+      <div className="p-4 bg-white border-t border-gray-100">
+        <div className="w-full relative flex items-center bg-white rounded-2xl border border-gray-200 focus-within:border-teal-400 focus-within:ring-4 focus-within:ring-teal-50/30 transition-all shadow-sm">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="请输入提示语"
-            className="w-full py-4 px-6 pr-14 text-gray-700 outline-none rounded-2xl placeholder-gray-300 font-medium"
+            placeholder="请输入您的问题或指令..."
+            className="w-full py-4 px-6 pr-32 text-gray-700 outline-none rounded-2xl placeholder-gray-300 font-medium bg-white"
           />
-          <button 
-            onClick={handleSend}
-            disabled={!input.trim() || isLoading}
-            className={`absolute right-3 p-2.5 rounded-xl transition-all ${
-              input.trim() ? 'bg-teal-400 text-white hover:bg-teal-500 shadow-lg' : 'text-gray-300'
-            }`}
-          >
-            <Send size={20} />
-          </button>
+          <div className="absolute right-3 flex items-center gap-2">
+            <button 
+              type="button"
+              className="p-2 text-gray-400 hover:text-teal-500 transition-colors"
+              title="上传文件"
+            >
+              <Paperclip size={20} />
+            </button>
+            <button 
+              type="button"
+              className="p-2 text-gray-400 hover:text-teal-500 transition-colors"
+              title="联网搜索"
+            >
+              <Globe size={20} />
+            </button>
+            <button 
+              onClick={handleSend}
+              disabled={!input.trim() || isLoading}
+              className={`p-2.5 rounded-xl transition-all ${
+                input.trim() ? 'bg-teal-500 text-white hover:bg-teal-600 shadow-md active:scale-95' : 'text-gray-300 bg-gray-50'
+              }`}
+            >
+              <Send size={20} />
+            </button>
+          </div>
         </div>
       </div>
     </div>
