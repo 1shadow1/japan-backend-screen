@@ -29,13 +29,12 @@ const TaskManagement: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [isExecuteModalOpen, setIsExecuteModalOpen] = useState(false);
   
+  // Execution status within modal
   const [executionStatus, setExecutionStatus] = useState<'idle' | 'processing' | 'success'>('idle');
   
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
-  const [taskToExecute, setTaskToExecute] = useState<Task | null>(null);
 
   // AI Learning states
   const [aiAnalysis, setAiAnalysis] = useState('');
@@ -80,6 +79,7 @@ const TaskManagement: React.FC = () => {
     setActiveTask(null);
     setFormData({ name: '', description: '', status: 'pending', priority: 'medium', assignee: '', dueDate: '', pond: '' });
     setAiAnalysis('');
+    setExecutionStatus('idle');
     setIsModalOpen(true);
   };
 
@@ -87,30 +87,48 @@ const TaskManagement: React.FC = () => {
     setActiveTask(task);
     setFormData({ ...task });
     setAiAnalysis('');
+    setExecutionStatus('idle');
     setIsModalOpen(true);
   };
 
-  const openExecuteModal = (task: Task) => {
-    setTaskToExecute(task);
-    setExecutionStatus('idle');
-    setIsExecuteModalOpen(true);
+  const saveTask = () => {
+    let savedTask: Task;
+    if (activeTask) {
+      savedTask = { ...activeTask, ...formData };
+      setTasks(prev => prev.map(t => t.id === activeTask.id ? savedTask : t));
+    } else {
+      const newId = `T-${Math.floor(800 + Math.random() * 200)}`;
+      savedTask = { id: newId, ...formData };
+      setTasks(prev => [savedTask, ...prev]);
+      setActiveTask(savedTask); // Keep reference for execution
+    }
+    return savedTask;
   };
 
   const handleManualExecute = async () => {
-    if (!taskToExecute) return;
+    if (!formData.name.trim()) {
+      alert('请先输入任务名称');
+      return;
+    }
+    
     setExecutionStatus('processing');
     
-    // Simulate API delay
+    // 1. Save current form state first
+    const currentTask = saveTask();
+    
+    // 2. Simulate execution delay
     await new Promise(resolve => setTimeout(resolve, 2000));
     
+    // 3. Update status to completed
     setTasks(prev => prev.map(t => 
-      t.id === taskToExecute.id ? { ...t, status: 'completed' as TaskStatus } : t
+      t.id === (activeTask?.id || currentTask.id) ? { ...t, status: 'completed' as TaskStatus } : t
     ));
+    
     setExecutionStatus('success');
     
-    // Auto close after success
+    // 4. Close modal after success feedback
     setTimeout(() => {
-      setIsExecuteModalOpen(false);
+      setIsModalOpen(false);
       setExecutionStatus('idle');
     }, 1500);
   };
@@ -146,12 +164,7 @@ const TaskManagement: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (activeTask) {
-      setTasks(prev => prev.map(t => t.id === activeTask.id ? { ...t, ...formData } : t));
-    } else {
-      const newId = `T-${Math.floor(800 + Math.random() * 200)}`;
-      setTasks(prev => [{ id: newId, ...formData }, ...prev]);
-    }
+    saveTask();
     setIsModalOpen(false);
   };
 
@@ -253,9 +266,6 @@ const TaskManagement: React.FC = () => {
                   </td>
                   <td className="px-6 py-6 text-right">
                     <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                      <button onClick={() => openExecuteModal(task)} className="p-2.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl" title="手动执行">
-                        <PlayCircle size={18} />
-                      </button>
                       <button onClick={() => setIsDetailOpen(true)} className="p-2.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl">
                         <Eye size={18} />
                       </button>
@@ -274,51 +284,38 @@ const TaskManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* Manual Execution Modal */}
-      {isExecuteModalOpen && taskToExecute && (
-        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !executionStatus.includes('processing') && setIsExecuteModalOpen(false)} />
-          <div className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl relative p-8 text-center space-y-6 animate-in zoom-in duration-200">
-            {executionStatus === 'idle' && (
-              <>
-                <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto">
-                  <PlayCircle size={32} />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-gray-800">确认立刻手动执行？</h3>
-                  <p className="text-sm text-gray-400 mt-2">您即将启动任务: <span className="text-teal-600 font-bold">{taskToExecute.name}</span></p>
-                </div>
-                <div className="flex gap-4">
-                  <button onClick={() => setIsExecuteModalOpen(false)} className="flex-1 py-3.5 rounded-2xl text-sm font-bold text-gray-400 hover:bg-gray-50 transition-all">取消</button>
-                  <button onClick={handleManualExecute} className="flex-1 py-3.5 rounded-2xl text-sm font-bold text-white bg-emerald-500 shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all">确认开始</button>
-                </div>
-              </>
-            )}
-            {executionStatus === 'processing' && (
-              <div className="py-8 space-y-4">
-                <Loader2 size={48} className="text-teal-500 animate-spin mx-auto" />
-                <h3 className="text-lg font-bold text-gray-800">正在执行任务...</h3>
-                <p className="text-sm text-gray-400 italic">正在同步养殖中枢指令</p>
-              </div>
-            )}
-            {executionStatus === 'success' && (
-              <div className="py-8 space-y-4 animate-in fade-in zoom-in duration-300">
-                <div className="w-16 h-16 bg-emerald-500 text-white rounded-full flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/30">
-                  <CheckCircle size={32} />
-                </div>
-                <h3 className="text-lg font-bold text-emerald-600">手动执行成功</h3>
-                <p className="text-sm text-gray-400">任务已更新为完成状态</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Modal - Add / Edit */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => executionStatus === 'idle' && setIsModalOpen(false)} />
           <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl relative overflow-hidden animate-in zoom-in duration-200">
+            {/* Overlay for Execution Status */}
+            {executionStatus !== 'idle' && (
+              <div className="absolute inset-0 z-[110] bg-white/90 backdrop-blur-md flex flex-col items-center justify-center text-center p-8 space-y-6 animate-in fade-in duration-300">
+                {executionStatus === 'processing' ? (
+                  <>
+                    <div className="w-20 h-20 bg-teal-50 text-teal-500 rounded-full flex items-center justify-center animate-pulse">
+                      <Loader2 size={40} className="animate-spin" />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-bold text-gray-800">正在下发执行指令...</h3>
+                      <p className="text-gray-400 mt-2">系统正在同步 IoT 数据中心并启动现场作业</p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-20 h-20 bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/30 animate-in zoom-in duration-500">
+                      <CheckCircle size={40} />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-bold text-emerald-600">手动执行已成功启动</h3>
+                      <p className="text-gray-400 mt-2">任务状态已更新，现场设备正在响应中</p>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
             <div className="px-8 py-6 border-b flex items-center justify-between bg-teal-50/30">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-teal-500 rounded-xl text-white">
@@ -396,7 +393,14 @@ const TaskManagement: React.FC = () => {
 
               <div className="pt-4 flex gap-4">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 font-bold text-gray-400 hover:bg-gray-50 rounded-xl transition-all">取消</button>
-                <button type="submit" className="flex-[2] py-3 font-bold text-white bg-teal-500 rounded-xl shadow-lg shadow-teal-500/20 hover:bg-teal-600 transition-all active:scale-[0.98]">确认提交</button>
+                <button 
+                  type="button" 
+                  onClick={handleManualExecute} 
+                  className="flex-1 py-3 font-bold text-teal-600 border border-teal-100 rounded-xl hover:bg-teal-50 transition-all flex items-center justify-center gap-2"
+                >
+                  <PlayCircle size={18} /> 立刻手动执行
+                </button>
+                <button type="submit" className="flex-1 py-3 font-bold text-white bg-teal-500 rounded-xl shadow-lg shadow-teal-500/20 hover:bg-teal-600 transition-all active:scale-[0.98]">确认提交</button>
               </div>
             </form>
           </div>
@@ -407,7 +411,7 @@ const TaskManagement: React.FC = () => {
       {isDeleteModalOpen && taskToDelete && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsDeleteModalOpen(false)} />
-          <div className="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl relative p-8 text-center space-y-6 animate-in zoom-in duration-200">
+          <div className="bg-white w-full max-sm rounded-[2rem] shadow-2xl relative p-8 text-center space-y-6 animate-in zoom-in duration-200">
             <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto">
               <AlertTriangle size={32} />
             </div>
