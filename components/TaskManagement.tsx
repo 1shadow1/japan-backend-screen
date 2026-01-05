@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Plus, Search, MoreHorizontal, Edit2, Trash2, RefreshCw, Filter, Layers, X, Info, Sparkles, Activity, CheckCircle2, AlertCircle, Eye, Clock, User, ClipboardList, AlertTriangle, Loader2, Bot } from 'lucide-react';
+import { Plus, Search, MoreHorizontal, Edit2, Trash2, RefreshCw, Filter, Layers, X, Info, Sparkles, Activity, CheckCircle2, AlertCircle, Eye, Clock, User, ClipboardList, AlertTriangle, Loader2, Bot, PlayCircle, CheckCircle } from 'lucide-react';
 import { Task, TaskStatus, TaskPriority } from '../types';
 import { getGeminiStreamingResponse } from '../services/geminiService';
 
@@ -22,14 +22,20 @@ const INITIAL_TASKS: Task[] = [
 const TaskManagement: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchAssignee, setSearchAssignee] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterPriority, setFilterPriority] = useState<string>('all');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isExecuteModalOpen, setIsExecuteModalOpen] = useState(false);
+  
+  const [executionStatus, setExecutionStatus] = useState<'idle' | 'processing' | 'success'>('idle');
+  
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
+  const [taskToExecute, setTaskToExecute] = useState<Task | null>(null);
 
   // AI Learning states
   const [aiAnalysis, setAiAnalysis] = useState('');
@@ -47,9 +53,10 @@ const TaskManagement: React.FC = () => {
 
   const filteredTasks = tasks.filter(t => {
     const matchesSearch = t.name.toLowerCase().includes(searchTerm.toLowerCase()) || t.id.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesAssignee = t.assignee.toLowerCase().includes(searchAssignee.toLowerCase());
     const matchesStatus = filterStatus === 'all' || t.status === filterStatus;
     const matchesPriority = filterPriority === 'all' || t.priority === filterPriority;
-    return matchesSearch && matchesStatus && matchesPriority;
+    return matchesSearch && matchesAssignee && matchesStatus && matchesPriority;
   });
 
   const getStatusBadge = (status: TaskStatus) => {
@@ -83,22 +90,29 @@ const TaskManagement: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const openDetailView = (task: Task) => {
-    setActiveTask(task);
-    setIsDetailOpen(true);
+  const openExecuteModal = (task: Task) => {
+    setTaskToExecute(task);
+    setExecutionStatus('idle');
+    setIsExecuteModalOpen(true);
   };
 
-  const openDeleteConfirmation = (task: Task) => {
-    setTaskToDelete(task);
-    setIsDeleteModalOpen(true);
-  };
-
-  const confirmDelete = () => {
-    if (taskToDelete) {
-      setTasks(prev => prev.filter(t => t.id !== taskToDelete.id));
-      setIsDeleteModalOpen(false);
-      setTaskToDelete(null);
-    }
+  const handleManualExecute = async () => {
+    if (!taskToExecute) return;
+    setExecutionStatus('processing');
+    
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    setTasks(prev => prev.map(t => 
+      t.id === taskToExecute.id ? { ...t, status: 'completed' as TaskStatus } : t
+    ));
+    setExecutionStatus('success');
+    
+    // Auto close after success
+    setTimeout(() => {
+      setIsExecuteModalOpen(false);
+      setExecutionStatus('idle');
+    }, 1500);
   };
 
   const handleAiLearn = async () => {
@@ -141,6 +155,14 @@ const TaskManagement: React.FC = () => {
     setIsModalOpen(false);
   };
 
+  const confirmDelete = () => {
+    if (taskToDelete) {
+      setTasks(prev => prev.filter(t => t.id !== taskToDelete.id));
+      setIsDeleteModalOpen(false);
+      setTaskToDelete(null);
+    }
+  };
+
   return (
     <div className="flex-1 p-8 overflow-y-auto custom-scrollbar bg-[#f9fafb]">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -181,12 +203,16 @@ const TaskManagement: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-4 pt-4 border-t border-gray-50">
+          <div className="flex flex-col md:flex-row items-center gap-4 pt-4 border-t border-gray-50">
             <div className="relative flex-1 w-full">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-              <input type="text" placeholder="搜索任务名称、ID或负责人..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-gray-50 border border-gray-100 rounded-xl pl-11 pr-4 py-3 text-sm text-gray-900 outline-none font-medium" />
+              <input type="text" placeholder="搜索任务名称、ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-gray-50 border border-gray-100 rounded-xl pl-11 pr-4 py-3 text-sm text-gray-900 outline-none font-medium" />
             </div>
-            <button className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-white text-gray-600 rounded-xl text-sm font-bold border border-gray-100 shadow-sm">
+            <div className="relative flex-1 w-full">
+              <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <input type="text" placeholder="负责人..." value={searchAssignee} onChange={(e) => setSearchAssignee(e.target.value)} className="w-full bg-gray-50 border border-gray-100 rounded-xl pl-11 pr-4 py-3 text-sm text-gray-900 outline-none font-medium" />
+            </div>
+            <button className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-white text-gray-600 rounded-xl text-sm font-bold border border-gray-100 shadow-sm">
               <RefreshCw size={16} /> 刷新
             </button>
           </div>
@@ -227,13 +253,16 @@ const TaskManagement: React.FC = () => {
                   </td>
                   <td className="px-6 py-6 text-right">
                     <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                      <button onClick={() => openDetailView(task)} className="p-2.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl">
+                      <button onClick={() => openExecuteModal(task)} className="p-2.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl" title="手动执行">
+                        <PlayCircle size={18} />
+                      </button>
+                      <button onClick={() => setIsDetailOpen(true)} className="p-2.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl">
                         <Eye size={18} />
                       </button>
                       <button onClick={() => openEditModal(task)} className="p-2.5 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-xl">
                         <Edit2 size={18} />
                       </button>
-                      <button onClick={() => openDeleteConfirmation(task)} className="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl">
+                      <button onClick={() => {setTaskToDelete(task); setIsDeleteModalOpen(true);}} className="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl">
                         <Trash2 size={18} />
                       </button>
                     </div>
@@ -244,6 +273,46 @@ const TaskManagement: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Manual Execution Modal */}
+      {isExecuteModalOpen && taskToExecute && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !executionStatus.includes('processing') && setIsExecuteModalOpen(false)} />
+          <div className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl relative p-8 text-center space-y-6 animate-in zoom-in duration-200">
+            {executionStatus === 'idle' && (
+              <>
+                <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto">
+                  <PlayCircle size={32} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-800">确认立刻手动执行？</h3>
+                  <p className="text-sm text-gray-400 mt-2">您即将启动任务: <span className="text-teal-600 font-bold">{taskToExecute.name}</span></p>
+                </div>
+                <div className="flex gap-4">
+                  <button onClick={() => setIsExecuteModalOpen(false)} className="flex-1 py-3.5 rounded-2xl text-sm font-bold text-gray-400 hover:bg-gray-50 transition-all">取消</button>
+                  <button onClick={handleManualExecute} className="flex-1 py-3.5 rounded-2xl text-sm font-bold text-white bg-emerald-500 shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all">确认开始</button>
+                </div>
+              </>
+            )}
+            {executionStatus === 'processing' && (
+              <div className="py-8 space-y-4">
+                <Loader2 size={48} className="text-teal-500 animate-spin mx-auto" />
+                <h3 className="text-lg font-bold text-gray-800">正在执行任务...</h3>
+                <p className="text-sm text-gray-400 italic">正在同步养殖中枢指令</p>
+              </div>
+            )}
+            {executionStatus === 'success' && (
+              <div className="py-8 space-y-4 animate-in fade-in zoom-in duration-300">
+                <div className="w-16 h-16 bg-emerald-500 text-white rounded-full flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/30">
+                  <CheckCircle size={32} />
+                </div>
+                <h3 className="text-lg font-bold text-emerald-600">手动执行成功</h3>
+                <p className="text-sm text-gray-400">任务已更新为完成状态</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Modal - Add / Edit */}
       {isModalOpen && (
@@ -338,7 +407,7 @@ const TaskManagement: React.FC = () => {
       {isDeleteModalOpen && taskToDelete && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsDeleteModalOpen(false)} />
-          <div className="bg-white w-full max-sm rounded-[2rem] shadow-2xl relative p-8 text-center space-y-6 animate-in zoom-in duration-200">
+          <div className="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl relative p-8 text-center space-y-6 animate-in zoom-in duration-200">
             <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto">
               <AlertTriangle size={32} />
             </div>
@@ -350,48 +419,6 @@ const TaskManagement: React.FC = () => {
               <button onClick={() => setIsDeleteModalOpen(false)} className="flex-1 py-3.5 rounded-2xl text-sm font-bold text-gray-400 hover:bg-gray-50 transition-all">取消</button>
               <button onClick={confirmDelete} className="flex-1 py-3.5 rounded-2xl text-sm font-bold text-white bg-red-500 shadow-lg shadow-red-500/20 hover:bg-red-600 transition-all">确认撤销</button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal - Detail */}
-      {isDetailOpen && activeTask && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsDetailOpen(false)} />
-          <div className="bg-white w-full max-w-xl rounded-[2.5rem] shadow-2xl relative p-10 space-y-8 animate-in fade-in duration-300">
-            <button onClick={() => setIsDetailOpen(false)} className="absolute top-8 right-8 text-gray-400 hover:text-gray-900"><X size={24} /></button>
-            <div className="flex items-center gap-6">
-              <div className="w-20 h-20 rounded-3xl bg-teal-50 flex items-center justify-center text-teal-500"><ClipboardList size={36} /></div>
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">{activeTask.name}</h2>
-                <div className="flex gap-2 mt-1">{getStatusBadge(activeTask.status)} {getPriorityBadge(activeTask.priority)}</div>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-6 pt-4 border-t border-gray-100">
-              <div className="space-y-1">
-                <span className="text-[10px] font-bold text-gray-400 uppercase">任务编号</span>
-                <div className="text-sm font-mono font-bold text-gray-700">{activeTask.id}</div>
-              </div>
-              <div className="space-y-1">
-                <span className="text-[10px] font-bold text-gray-400 uppercase">截止时间</span>
-                <div className="text-sm font-bold text-gray-700">{activeTask.dueDate}</div>
-              </div>
-              <div className="space-y-1">
-                <span className="text-[10px] font-bold text-gray-400 uppercase">执行池位</span>
-                <div className="text-sm font-bold text-gray-700">{activeTask.pond || '未指定'}</div>
-              </div>
-              <div className="space-y-1">
-                <span className="text-[10px] font-bold text-gray-400 uppercase">负责人</span>
-                <div className="text-sm font-bold text-gray-700">{activeTask.assignee}</div>
-              </div>
-            </div>
-            <div className="space-y-3">
-              <span className="text-[10px] font-bold text-gray-400 uppercase">详细描述</span>
-              <div className="p-5 bg-gray-50 rounded-2xl border border-gray-100 text-sm text-gray-700 leading-relaxed italic">
-                {activeTask.description || '暂无详细描述信息。'}
-              </div>
-            </div>
-            <button onClick={() => setIsDetailOpen(false)} className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold shadow-xl active:scale-[0.98] transition-transform">返回列表</button>
           </div>
         </div>
       )}
