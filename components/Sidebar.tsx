@@ -10,7 +10,7 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed, setIsCollapsed }) => {
-  const [expandedMenus, setExpandedMenus] = useState<string[]>(['ai', 'device', 'task']);
+  const [expandedMenus, setExpandedMenus] = useState<string[]>(['ai', 'data', 'device', 'task']);
 
   const toggleExpand = (id: string) => {
     if (isCollapsed) {
@@ -31,10 +31,17 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
       hasSub: true,
       subItems: [
         { id: 'ai', icon: MessageSquare, label: '智能问答' },
+      ]
+    },
+    { 
+      id: 'data', 
+      icon: BarChart3, 
+      label: '数据中心', 
+      hasSub: true,
+      subItems: [
         { id: 'ai-dashboard', icon: LayoutDashboard, label: '数字大屏' },
       ]
     },
-    { id: 'data', icon: BarChart3, label: '数据中心', hasSub: true },
     { 
       id: 'device', 
       icon: Settings, 
@@ -42,7 +49,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
       hasSub: true,
       subItems: [
         { id: 'device-manage', icon: Laptop, label: '设备管理' },
-        { id: 'device-monitor', icon: MonitorPlay, label: '远程监控' },
       ]
     },
     { 
