@@ -1,0 +1,345 @@
+
+import React, { useState, useMemo } from 'react';
+import { Plus, Search, MoreHorizontal, Edit2, Trash2, RefreshCw, Filter, Layers, X, Info, Sparkles, Activity, CheckCircle2, AlertCircle, Eye, Clock, User, ClipboardList, AlertTriangle } from 'lucide-react';
+import { Task, TaskStatus, TaskPriority } from '../types';
+
+const INITIAL_TASKS: Task[] = [
+  { 
+    id: 'T-801', name: '水质抽样检测', description: '对四号池进行例行水质抽样，检测氨氮与溶氧量。', 
+    status: 'pending', priority: 'high', assignee: '张工', dueDate: '2024-05-21 10:00', pond: '四号池' 
+  },
+  { 
+    id: 'T-802', name: '投喂机例行检查', description: '检查投喂机传动部件，清理残留饲料。', 
+    status: 'in_progress', priority: 'medium', assignee: '李四', dueDate: '2024-05-20 16:30', pond: '一号池' 
+  },
+  { 
+    id: 'T-803', name: '藻类清理', description: '清理二号池边缘过度生长的小球藻。', 
+    status: 'completed', priority: 'low', assignee: '王五', dueDate: '2024-05-19 14:00', pond: '二号池' 
+  },
+];
+
+const TaskManagement: React.FC = () => {
+  const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterPriority, setFilterPriority] = useState<string>('all');
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
+
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    status: 'pending' as TaskStatus,
+    priority: 'medium' as TaskPriority,
+    assignee: '',
+    dueDate: '',
+    pond: ''
+  });
+
+  const filteredTasks = tasks.filter(t => {
+    const matchesSearch = t.name.toLowerCase().includes(searchTerm.toLowerCase()) || t.id.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = filterStatus === 'all' || t.status === filterStatus;
+    const matchesPriority = filterPriority === 'all' || t.priority === filterPriority;
+    return matchesSearch && matchesStatus && matchesPriority;
+  });
+
+  const getStatusBadge = (status: TaskStatus) => {
+    switch (status) {
+      case 'pending': return <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-orange-50 text-orange-600"><Clock size={12}/> 待处理</div>;
+      case 'in_progress': return <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-600 animate-pulse"><Activity size={12}/> 进行中</div>;
+      case 'completed': return <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-600"><CheckCircle2 size={12}/> 已完成</div>;
+      case 'cancelled': return <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-gray-50 text-gray-400"><X size={12}/> 已取消</div>;
+    }
+  };
+
+  const getPriorityBadge = (priority: TaskPriority) => {
+    switch (priority) {
+      case 'high': return <span className="text-red-500 font-bold text-xs uppercase tracking-tighter">● 高</span>;
+      case 'medium': return <span className="text-orange-400 font-bold text-xs uppercase tracking-tighter">● 中</span>;
+      case 'low': return <span className="text-blue-400 font-bold text-xs uppercase tracking-tighter">● 低</span>;
+    }
+  };
+
+  const openAddModal = () => {
+    setActiveTask(null);
+    setFormData({ name: '', description: '', status: 'pending', priority: 'medium', assignee: '', dueDate: '', pond: '' });
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (task: Task) => {
+    setActiveTask(task);
+    setFormData({ ...task });
+    setIsModalOpen(true);
+  };
+
+  const openDetailView = (task: Task) => {
+    setActiveTask(task);
+    setIsDetailOpen(true);
+  };
+
+  const openDeleteConfirmation = (task: Task) => {
+    setTaskToDelete(task);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (taskToDelete) {
+      setTasks(prev => prev.filter(t => t.id !== taskToDelete.id));
+      setIsDeleteModalOpen(false);
+      setTaskToDelete(null);
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (activeTask) {
+      setTasks(prev => prev.map(t => t.id === activeTask.id ? { ...t, ...formData } : t));
+    } else {
+      const newId = `T-${Math.floor(800 + Math.random() * 200)}`;
+      setTasks(prev => [{ id: newId, ...formData }, ...prev]);
+    }
+    setIsModalOpen(false);
+  };
+
+  return (
+    <div className="flex-1 p-8 overflow-y-auto custom-scrollbar bg-[#f9fafb]">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">任务管理</h1>
+            <p className="text-gray-400 text-sm mt-1">创建和跟踪养殖场内的日常维护及突发任务</p>
+          </div>
+          <button 
+            onClick={openAddModal}
+            className="flex items-center gap-2 bg-teal-500 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-teal-600 shadow-lg shadow-teal-500/20 transition-all active:scale-95"
+          >
+            <Plus size={20} />
+            <span>发布新任务</span>
+          </button>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+          <div className="flex flex-wrap items-center gap-6">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1"><Filter size={12}/> 状态</span>
+              <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="bg-gray-50 border border-gray-100 rounded-lg px-3 py-1.5 text-sm text-gray-900 outline-none">
+                <option value="all">全部状态</option>
+                <option value="pending">待处理</option>
+                <option value="in_progress">进行中</option>
+                <option value="completed">已完成</option>
+                <option value="cancelled">已取消</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1"><AlertCircle size={12}/> 优先级</span>
+              <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)} className="bg-gray-50 border border-gray-100 rounded-lg px-3 py-1.5 text-sm text-gray-900 outline-none">
+                <option value="all">全部级别</option>
+                <option value="high">高</option>
+                <option value="medium">中</option>
+                <option value="low">低</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center gap-4 pt-4 border-t border-gray-50">
+            <div className="relative flex-1 w-full">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <input type="text" placeholder="搜索任务名称、ID或负责人..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-gray-50 border border-gray-100 rounded-xl pl-11 pr-4 py-3 text-sm text-gray-900 outline-none font-medium" />
+            </div>
+            <button className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-white text-gray-600 rounded-xl text-sm font-bold border border-gray-100 shadow-sm">
+              <RefreshCw size={16} /> 刷新
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-12">
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-gray-50/50 border-b border-gray-100">
+              <tr>
+                <th className="px-6 py-5 text-xs font-bold text-gray-400 uppercase tracking-wider">任务信息</th>
+                <th className="px-6 py-5 text-xs font-bold text-gray-400 uppercase tracking-wider">状态</th>
+                <th className="px-6 py-5 text-xs font-bold text-gray-400 uppercase tracking-wider">优先级</th>
+                <th className="px-6 py-5 text-xs font-bold text-gray-400 uppercase tracking-wider">负责人</th>
+                <th className="px-6 py-5 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">操作</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {filteredTasks.map((task) => (
+                <tr key={task.id} className="hover:bg-gray-50/50 transition-colors group">
+                  <td className="px-6 py-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-11 h-11 rounded-2xl bg-gray-50 flex items-center justify-center border border-gray-100 group-hover:bg-white transition-all shadow-sm text-teal-500">
+                        <ClipboardList size={20} />
+                      </div>
+                      <div>
+                        <div className="text-[15px] font-bold text-gray-800">{task.name}</div>
+                        <div className="text-xs text-gray-400 font-mono mt-0.5">{task.id} • {task.pond}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-6">{getStatusBadge(task.status)}</td>
+                  <td className="px-6 py-6 font-medium text-sm text-gray-600">{getPriorityBadge(task.priority)}</td>
+                  <td className="px-6 py-6 text-sm text-gray-700 font-medium">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center text-[10px] font-bold">{task.assignee.charAt(0)}</div>
+                      {task.assignee}
+                    </div>
+                  </td>
+                  <td className="px-6 py-6 text-right">
+                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                      <button onClick={() => openDetailView(task)} className="p-2.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl">
+                        <Eye size={18} />
+                      </button>
+                      <button onClick={() => openEditModal(task)} className="p-2.5 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-xl">
+                        <Edit2 size={18} />
+                      </button>
+                      <button onClick={() => openDeleteConfirmation(task)} className="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl">
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Modal - Add / Edit */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
+          <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl relative overflow-hidden animate-in zoom-in duration-200">
+            <div className="px-8 py-6 border-b flex items-center justify-between bg-teal-50/30">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-teal-500 rounded-xl text-white">
+                  <Plus size={24} />
+                </div>
+                <h2 className="text-xl font-bold text-gray-800">{activeTask ? '编辑任务' : '发布新任务'}</h2>
+              </div>
+              <button onClick={() => setIsModalOpen(false)} className="p-2 text-gray-400 hover:text-gray-600"><X size={20} /></button>
+            </div>
+            <form onSubmit={handleSubmit} className="p-8 space-y-6 max-h-[75vh] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-5">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">任务名称</label>
+                  <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm text-gray-900 outline-none" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">优先级</label>
+                  <select value={formData.priority} onChange={e => setFormData({...formData, priority: e.target.value as TaskPriority})} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm text-gray-900 outline-none">
+                    <option value="low">低</option>
+                    <option value="medium">中</option>
+                    <option value="high">高</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-5">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">负责人</label>
+                  <input required value={formData.assignee} onChange={e => setFormData({...formData, assignee: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm text-gray-900 outline-none" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">关联池位</label>
+                  <input value={formData.pond} onChange={e => setFormData({...formData, pond: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm text-gray-900 outline-none" placeholder="例如：四号池" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-5">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">截止时间</label>
+                  <input type="datetime-local" required value={formData.dueDate} onChange={e => setFormData({...formData, dueDate: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm text-gray-900 outline-none" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">当前状态</label>
+                  <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as TaskStatus})} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm text-gray-900 outline-none">
+                    <option value="pending">待处理</option>
+                    <option value="in_progress">进行中</option>
+                    <option value="completed">已完成</option>
+                    <option value="cancelled">已取消</option>
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">任务描述</label>
+                <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={3} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm text-gray-900 outline-none resize-none" />
+              </div>
+
+              <div className="pt-4 flex gap-4">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 font-bold text-gray-400">取消</button>
+                <button type="submit" className="flex-[2] py-3 font-bold text-white bg-teal-500 rounded-xl shadow-lg shadow-teal-500/20">确认提交</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal - Delete */}
+      {isDeleteModalOpen && taskToDelete && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsDeleteModalOpen(false)} />
+          <div className="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl relative p-8 text-center space-y-6 animate-in zoom-in duration-200">
+            <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto">
+              <AlertTriangle size={32} />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-gray-800">确认撤销任务？</h3>
+              <p className="text-sm text-gray-400 mt-2">此操作将移除任务 <span className="text-gray-900 font-bold">{taskToDelete.name}</span>。</p>
+            </div>
+            <div className="flex gap-4">
+              <button onClick={() => setIsDeleteModalOpen(false)} className="flex-1 py-3.5 rounded-2xl text-sm font-bold text-gray-400">取消</button>
+              <button onClick={confirmDelete} className="flex-1 py-3.5 rounded-2xl text-sm font-bold text-white bg-red-500 shadow-lg shadow-red-500/20">确认撤销</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal - Detail */}
+      {isDetailOpen && activeTask && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsDetailOpen(false)} />
+          <div className="bg-white w-full max-w-xl rounded-[2.5rem] shadow-2xl relative p-10 space-y-8 animate-in fade-in duration-300">
+            <button onClick={() => setIsDetailOpen(false)} className="absolute top-8 right-8 text-gray-400 hover:text-gray-900"><X size={24} /></button>
+            <div className="flex items-center gap-6">
+              <div className="w-20 h-20 rounded-3xl bg-teal-50 flex items-center justify-center text-teal-500"><ClipboardList size={36} /></div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">{activeTask.name}</h2>
+                <div className="flex gap-2 mt-1">{getStatusBadge(activeTask.status)} {getPriorityBadge(activeTask.priority)}</div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-6 pt-4 border-t border-gray-100">
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold text-gray-400 uppercase">任务编号</span>
+                <div className="text-sm font-mono font-bold text-gray-700">{activeTask.id}</div>
+              </div>
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold text-gray-400 uppercase">截止时间</span>
+                <div className="text-sm font-bold text-gray-700">{activeTask.dueDate}</div>
+              </div>
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold text-gray-400 uppercase">执行池位</span>
+                <div className="text-sm font-bold text-gray-700">{activeTask.pond || '未指定'}</div>
+              </div>
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold text-gray-400 uppercase">负责人</span>
+                <div className="text-sm font-bold text-gray-700">{activeTask.assignee}</div>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <span className="text-[10px] font-bold text-gray-400 uppercase">详细描述</span>
+              <div className="p-5 bg-gray-50 rounded-2xl border border-gray-100 text-sm text-gray-700 leading-relaxed italic">
+                {activeTask.description || '暂无详细描述信息。'}
+              </div>
+            </div>
+            <button onClick={() => setIsDetailOpen(false)} className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold shadow-xl">返回列表</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default TaskManagement;
