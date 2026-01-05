@@ -6,18 +6,30 @@ import ChatArea from './components/ChatArea';
 import DataPanel from './components/DataPanel';
 import DeviceManagement from './components/DeviceManagement';
 import TaskManagement from './components/TaskManagement';
+import { SidebarTab, Message } from './types';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('ai');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<SidebarTab>('data');
+  const [messages, setMessages] = useState<Message[]>([]);
 
   const renderContent = () => {
     switch(activeTab) {
       case 'ai':
         return (
           <>
-            <ChatArea />
-            <DataPanel />
+            <ChatArea 
+              activeSidebarTab={sidebarTab} 
+              setActiveSidebarTab={setSidebarTab} 
+              messages={messages}
+              setMessages={setMessages}
+            />
+            <DataPanel 
+              activeTab={sidebarTab} 
+              setActiveTab={setSidebarTab}
+              setMessages={setMessages}
+            />
           </>
         );
       case 'ai-dashboard':

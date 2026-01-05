@@ -1,13 +1,19 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { TrendingUp, Cpu, History, Mic, GraduationCap, Send, Loader2, Paperclip, Globe, Clock } from 'lucide-react';
+import { TrendingUp, Cpu, History, Mic, GraduationCap, Send, Loader2, Paperclip, Globe, Clock, MessageSquareQuote } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Message } from '../types';
+import { Message, SidebarTab } from '../types';
 import { getGeminiStreamingResponse } from '../services/geminiService';
 
-const ChatArea: React.FC = () => {
-  const [messages, setMessages] = useState<Message[]>([]);
+interface ChatAreaProps {
+  activeSidebarTab: SidebarTab;
+  setActiveSidebarTab: (tab: SidebarTab) => void;
+  messages: Message[];
+  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+}
+
+const ChatArea: React.FC<ChatAreaProps> = ({ activeSidebarTab, setActiveSidebarTab, messages, setMessages }) => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -62,17 +68,34 @@ const ChatArea: React.FC = () => {
     }
   };
 
+  const navItems = [
+    { id: 'data' as SidebarTab, icon: TrendingUp, label: '养殖数据' },
+    { id: 'settings' as SidebarTab, icon: Cpu, label: '对话设置' },
+    { id: 'history' as SidebarTab, icon: History, label: '历史回话' },
+    { id: 'voice' as SidebarTab, icon: Mic, label: '语音聊天' },
+    { id: 'sources' as SidebarTab, icon: GraduationCap, label: '数据源' },
+  ];
+
   return (
     <div className="flex-1 flex flex-col bg-white rounded-2xl shadow-sm border border-gray-100 my-4 mx-2 overflow-hidden relative">
       {/* Chat Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b bg-white">
         <h2 className="text-gray-600 font-medium text-lg">new chat</h2>
-        <div className="flex items-center gap-5 text-teal-200">
-          <TrendingUp size={22} className="text-teal-400 hover:text-teal-600 cursor-pointer transition-colors" />
-          <Cpu size={22} className="hover:text-teal-400 cursor-pointer transition-colors" />
-          <History size={22} className="hover:text-teal-400 cursor-pointer transition-colors" />
-          <Mic size={22} className="hover:text-teal-400 cursor-pointer transition-colors" />
-          <GraduationCap size={22} className="hover:text-teal-400 cursor-pointer transition-colors" />
+        <div className="flex items-center gap-5">
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActiveSidebarTab(item.id)}
+              title={item.label}
+              className={`p-1.5 rounded-lg transition-all ${
+                activeSidebarTab === item.id 
+                  ? 'text-teal-500 bg-teal-50' 
+                  : 'text-teal-200 hover:text-teal-400 hover:bg-teal-50/30'
+              }`}
+            >
+              <item.icon size={22} />
+            </button>
+          ))}
         </div>
       </div>
 
@@ -83,7 +106,10 @@ const ChatArea: React.FC = () => {
       >
         <div className="flex flex-col space-y-6 w-full">
           {messages.length === 0 && !isLoading && (
-            <div className="flex flex-col items-center justify-center h-64 text-gray-300">
+            <div className="flex flex-col items-center justify-center h-64 text-gray-300 gap-4">
+              <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center">
+                <MessageSquareQuote size={32} />
+              </div>
               <p className="text-lg">开始您的对话吧</p>
             </div>
           )}

@@ -47,3 +47,5 @@ export interface Task {
   dueDate: string;
   pond: string;
 }
+
+export type SidebarTab = 'data' | 'settings' | 'history' | 'voice' | 'sources';
