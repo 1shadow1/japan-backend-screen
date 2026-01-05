@@ -1,7 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
-import { Plus, Search, MoreHorizontal, Edit2, Trash2, RefreshCw, Filter, Layers, X, Info, Sparkles, Activity, CheckCircle2, AlertCircle, Eye, Clock, User, ClipboardList, AlertTriangle } from 'lucide-react';
+import { Plus, Search, MoreHorizontal, Edit2, Trash2, RefreshCw, Filter, Layers, X, Info, Sparkles, Activity, CheckCircle2, AlertCircle, Eye, Clock, User, ClipboardList, AlertTriangle, Loader2, Bot } from 'lucide-react';
 import { Task, TaskStatus, TaskPriority } from '../types';
+import { getGeminiStreamingResponse } from '../services/geminiService';
 
 const INITIAL_TASKS: Task[] = [
   { 
@@ -29,6 +30,10 @@ const TaskManagement: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
+
+  // AI Learning states
+  const [aiAnalysis, setAiAnalysis] = useState('');
+  const [isAiLoading, setIsAiLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -67,12 +72,14 @@ const TaskManagement: React.FC = () => {
   const openAddModal = () => {
     setActiveTask(null);
     setFormData({ name: '', description: '', status: 'pending', priority: 'medium', assignee: '', dueDate: '', pond: '' });
+    setAiAnalysis('');
     setIsModalOpen(true);
   };
 
   const openEditModal = (task: Task) => {
     setActiveTask(task);
     setFormData({ ...task });
+    setAiAnalysis('');
     setIsModalOpen(true);
   };
 
@@ -91,6 +98,35 @@ const TaskManagement: React.FC = () => {
       setTasks(prev => prev.filter(t => t.id !== taskToDelete.id));
       setIsDeleteModalOpen(false);
       setTaskToDelete(null);
+    }
+  };
+
+  const handleAiLearn = async () => {
+    if (!formData.description.trim()) {
+      alert('请先输入任务描述以供 AI 学习');
+      return;
+    }
+    setIsAiLoading(true);
+    setAiAnalysis('');
+    const prompt = `作为一个养殖专家，请分析以下任务：
+任务名称：${formData.name}
+任务描述：${formData.description}
+关联池位：${formData.pond}
+
+请提供：
+1. 任务执行的逻辑步骤。
+2. 可能存在的风险及安全提示。
+3. 优化执行效率的建议。`;
+
+    try {
+      const stream = getGeminiStreamingResponse(prompt);
+      for await (const chunk of stream) {
+        setAiAnalysis(prev => prev + chunk);
+      }
+    } catch (error) {
+      setAiAnalysis('AI 学习过程中发生错误，请重试。');
+    } finally {
+      setIsAiLoading(false);
     }
   };
 
@@ -227,7 +263,7 @@ const TaskManagement: React.FC = () => {
               <div className="grid grid-cols-2 gap-5">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">任务名称</label>
-                  <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm text-gray-900 outline-none" />
+                  <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-teal-500/5" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">优先级</label>
@@ -264,13 +300,34 @@ const TaskManagement: React.FC = () => {
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">任务描述</label>
-                <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={3} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm text-gray-900 outline-none resize-none" />
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">任务描述</label>
+                  <button type="button" onClick={handleAiLearn} disabled={isAiLoading} className="text-xs font-bold text-teal-600 bg-teal-50 px-2 py-1 rounded-lg hover:bg-teal-100 flex items-center gap-1 transition-colors">
+                    {isAiLoading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />} 
+                    AI 学习
+                  </button>
+                </div>
+                <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={3} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm text-gray-900 outline-none resize-none" placeholder="请输入任务详细信息..." />
               </div>
 
+              {/* AI Feedback Area */}
+              {(aiAnalysis || isAiLoading) && (
+                <div className="p-4 bg-slate-900 rounded-2xl border border-slate-800 space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="flex items-center justify-between">
+                    <div className="text-[10px] font-bold text-teal-400 uppercase flex items-center gap-2">
+                      <Bot size={12} /> AI 专家建议
+                    </div>
+                    {isAiLoading && <div className="text-[10px] text-teal-400/50 animate-pulse">正在生成深度分析...</div>}
+                  </div>
+                  <div className="text-[12px] text-teal-50/90 font-medium whitespace-pre-wrap max-h-48 overflow-y-auto custom-scrollbar leading-relaxed">
+                    {aiAnalysis || (isAiLoading && "正在分析养殖任务逻辑...")}
+                  </div>
+                </div>
+              )}
+
               <div className="pt-4 flex gap-4">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 font-bold text-gray-400">取消</button>
-                <button type="submit" className="flex-[2] py-3 font-bold text-white bg-teal-500 rounded-xl shadow-lg shadow-teal-500/20">确认提交</button>
+                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 font-bold text-gray-400 hover:bg-gray-50 rounded-xl transition-all">取消</button>
+                <button type="submit" className="flex-[2] py-3 font-bold text-white bg-teal-500 rounded-xl shadow-lg shadow-teal-500/20 hover:bg-teal-600 transition-all active:scale-[0.98]">确认提交</button>
               </div>
             </form>
           </div>
@@ -281,7 +338,7 @@ const TaskManagement: React.FC = () => {
       {isDeleteModalOpen && taskToDelete && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsDeleteModalOpen(false)} />
-          <div className="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl relative p-8 text-center space-y-6 animate-in zoom-in duration-200">
+          <div className="bg-white w-full max-sm rounded-[2rem] shadow-2xl relative p-8 text-center space-y-6 animate-in zoom-in duration-200">
             <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto">
               <AlertTriangle size={32} />
             </div>
@@ -290,8 +347,8 @@ const TaskManagement: React.FC = () => {
               <p className="text-sm text-gray-400 mt-2">此操作将移除任务 <span className="text-gray-900 font-bold">{taskToDelete.name}</span>。</p>
             </div>
             <div className="flex gap-4">
-              <button onClick={() => setIsDeleteModalOpen(false)} className="flex-1 py-3.5 rounded-2xl text-sm font-bold text-gray-400">取消</button>
-              <button onClick={confirmDelete} className="flex-1 py-3.5 rounded-2xl text-sm font-bold text-white bg-red-500 shadow-lg shadow-red-500/20">确认撤销</button>
+              <button onClick={() => setIsDeleteModalOpen(false)} className="flex-1 py-3.5 rounded-2xl text-sm font-bold text-gray-400 hover:bg-gray-50 transition-all">取消</button>
+              <button onClick={confirmDelete} className="flex-1 py-3.5 rounded-2xl text-sm font-bold text-white bg-red-500 shadow-lg shadow-red-500/20 hover:bg-red-600 transition-all">确认撤销</button>
             </div>
           </div>
         </div>
@@ -334,7 +391,7 @@ const TaskManagement: React.FC = () => {
                 {activeTask.description || '暂无详细描述信息。'}
               </div>
             </div>
-            <button onClick={() => setIsDetailOpen(false)} className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold shadow-xl">返回列表</button>
+            <button onClick={() => setIsDetailOpen(false)} className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold shadow-xl active:scale-[0.98] transition-transform">返回列表</button>
           </div>
         </div>
       )}
